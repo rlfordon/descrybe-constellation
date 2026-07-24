@@ -28,6 +28,28 @@ async function getJSON(url) {
 
 function setStatus(text) { $("status-line").textContent = text || ""; }
 
+// ---------------------------------------------------------- staged flow
+
+function expandStage(n) {
+  const waiting = $(`stage-${n}-waiting`);
+  const body = $(`stage-${n}-body`);
+  if (waiting) waiting.style.display = "none";
+  if (body) body.style.display = "block";
+}
+
+// -------------------------------------------------------- empty states
+
+function updateEmptyStates() {
+  $("graph-empty").style.display = corpusBuilt ? "none" : "flex";
+  $("leading-empty").style.display = corpusBuilt ? "none" : "block";
+  $("leading-body").style.display = corpusBuilt ? "block" : "none";
+  if (!corpusBuilt) {
+    $("case-empty").textContent = "Build a corpus, then click a node to view a case.";
+  } else if ($("case-card").style.display === "none") {
+    $("case-empty").textContent = "Click a node in the graph to view a case.";
+  }
+}
+
 // ------------------------------------------------------------- variants
 
 function addVariantInput(value) {
@@ -68,6 +90,7 @@ $("search-btn").addEventListener("click", async () => {
     clusters = resp.clusters;
     renderClusters();
     $("build-corpus-btn").disabled = false;
+    expandStage(2);
     setStatus(`found ${clusters.length} search cluster(s)`);
   } catch (e) {
     setStatus(String(e));
@@ -100,6 +123,7 @@ $("build-corpus-btn").addEventListener("click", async () => {
     corpusBuilt = true;
     $("hop-backward").disabled = false;
     $("hop-forward").disabled = false;
+    expandStage(3);
     if (!$("issue-filter-input").value.trim()) $("issue-filter-input").value = $("seed").value.trim();
     renderGraph(payload);
     setStatus(`corpus: ${payload.nodes.length} cases, ${payload.edges.length} edges`);
@@ -160,7 +184,9 @@ function nodeSizer(nodes) {
 function renderGraph(payload) {
   currentGraph = { nodes: payload.nodes, edges: payload.edges };
   updateCallsHint();
-  renderLeadingTab(payload.ranked_top || [], payload.foundational || []);
+  updateEmptyStates();
+  const matchIndex = issueMatchIndex(payload.nodes);
+  renderLeadingTab(payload.ranked_top || [], payload.foundational || [], matchIndex);
   renderIssueFilterCount(payload.nodes);
 
   const size = nodeSizer(payload.nodes);
@@ -298,11 +324,32 @@ $("layout-toggle").addEventListener("click", () => {
 
 // --------------------------------------------------------- issue filter
 
+function issueMatchIndex(nodes) {
+  const idx = {};
+  nodes.forEach((n) => { idx[n.id] = n.issue_match; });
+  return idx;
+}
+
 function renderIssueFilterCount(nodes) {
   const total = nodes.length;
   const matched = nodes.filter((n) => n.issue_match === true).length;
-  const anyChecked = nodes.some((n) => n.issue_match !== null && n.issue_match !== undefined);
-  $("issue-filter-status").textContent = anyChecked ? `${matched} of ${total} match` : "";
+  const active = nodes.some((n) => n.issue_match !== null && n.issue_match !== undefined);
+  const statusEl = $("issue-filter-status");
+  if (active) {
+    statusEl.textContent = `${matched} of ${total} match`;
+    statusEl.classList.remove("neutral");
+  } else if (total) {
+    statusEl.textContent = "No filter applied — showing full corpus";
+    statusEl.classList.add("neutral");
+  } else {
+    statusEl.textContent = "";
+    statusEl.classList.remove("neutral");
+  }
+  [$("graph-match-badge"), $("leading-match-badge")].forEach((el) => {
+    if (!el) return;
+    el.hidden = !active;
+    el.textContent = active ? `${matched} of ${total} match` : "";
+  });
 }
 
 $("issue-filter-btn").addEventListener("click", async () => {
@@ -331,12 +378,13 @@ $("issue-filter-clear").addEventListener("click", async () => {
   }
 });
 
-function renderLeadingTab(rankedTop, foundational) {
+function renderLeadingTab(rankedTop, foundational, matchIndex) {
   const tbody = document.querySelector("#ranked-table tbody");
   tbody.innerHTML = "";
   rankedTop.slice(0, 15).forEach((n) => {
     const tr = document.createElement("tr");
-    tr.className = "row-clickable";
+    const dim = matchIndex[n.cluster_id] === false;
+    tr.className = "row-clickable" + (dim ? " dim" : "");
     tr.innerHTML = `<td>${n.cited_by_corpus}</td><td>${n.search_membership}</td>` +
       `<td>${n.court_weight}</td><td>${n.name}</td><td>${n.date || ""}</td>`;
     tr.addEventListener("click", () => loadCase(n.case_id));
@@ -347,6 +395,8 @@ function renderLeadingTab(rankedTop, foundational) {
   list.innerHTML = "";
   foundational.forEach((n) => {
     const li = document.createElement("li");
+    const dim = matchIndex[n.cluster_id] === false;
+    if (dim) li.className = "dim";
     li.textContent = `${n.name} (${n.date || "?"}) — cited by ${n.cited_by_corpus}`;
     li.addEventListener("click", () => loadCase(n.case_id));
     list.appendChild(li);
@@ -401,11 +451,80 @@ document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click",
 
 // ---------------------------------------------------------------- export
 
-$("export-trail").addEventListener("click", () => window.open("/api/export/trail", "_blank"));
-$("export-snapshot").addEventListener("click", () => window.open("/api/export/snapshot", "_blank"));
+function closeExportMenu() {
+  $("export-menu").hidden = true;
+  $("export-toggle").setAttribute("aria-expanded", "false");
+}
+
+$("export-toggle").addEventListener("click", (e) => {
+  e.stopPropagation();
+  const willShow = $("export-menu").hidden;
+  $("export-menu").hidden = !willShow;
+  $("export-toggle").setAttribute("aria-expanded", String(willShow));
+});
+
+document.addEventListener("click", (e) => {
+  if (!$("export-dropdown").contains(e.target)) closeExportMenu();
+});
+
+$("export-trail").addEventListener("click", () => { window.open("/api/export/trail", "_blank"); closeExportMenu(); });
+$("export-snapshot").addEventListener("click", () => { window.open("/api/export/snapshot", "_blank"); closeExportMenu(); });
+$("export-dossier").addEventListener("click", () => { window.open("/api/export/dossier", "_blank"); closeExportMenu(); });
 $("view-dossier").addEventListener("click", () => window.open("/dossier", "_blank"));
-$("export-dossier").addEventListener("click", () => window.open("/api/export/dossier", "_blank"));
+
+// --------------------------------------------------------- resizable panes
+
+const PANE_MIN = { left: 220, right: 280 };
+const PANE_LS_KEY = { left: "constellation.paneLeftWidth", right: "constellation.paneRightWidth" };
+
+function applyStoredPaneWidths() {
+  ["left", "right"].forEach((side) => {
+    const stored = parseInt(localStorage.getItem(PANE_LS_KEY[side]), 10);
+    if (stored && stored >= PANE_MIN[side]) {
+      $(`pane-${side}`).style.width = `${stored}px`;
+    }
+  });
+}
+
+function initResizeHandles() {
+  document.querySelectorAll(".resize-handle").forEach((handle) => {
+    const side = handle.dataset.target; // "left" | "right"
+    const pane = $(`pane-${side}`);
+
+    handle.addEventListener("pointerdown", (downEvt) => {
+      downEvt.preventDefault();
+      handle.classList.add("dragging");
+      handle.setPointerCapture(downEvt.pointerId);
+      const startX = downEvt.clientX;
+      const startW = pane.getBoundingClientRect().width;
+
+      function onMove(moveEvt) {
+        const dx = moveEvt.clientX - startX;
+        const raw = side === "left" ? startW + dx : startW - dx;
+        pane.style.width = `${Math.max(PANE_MIN[side], raw)}px`;
+      }
+
+      function onUp() {
+        handle.classList.remove("dragging");
+        handle.releasePointerCapture(downEvt.pointerId);
+        handle.removeEventListener("pointermove", onMove);
+        handle.removeEventListener("pointerup", onUp);
+        localStorage.setItem(PANE_LS_KEY[side], String(Math.round(pane.getBoundingClientRect().width)));
+        // Cytoscape sizes its canvas from the container at init/layout time and
+        // doesn't observe flex-resizes on its own -- nudge it after any drag
+        // that touches the center pane's width (both handles border it).
+        if (cy) cy.resize();
+      }
+
+      handle.addEventListener("pointermove", onMove);
+      handle.addEventListener("pointerup", onUp);
+    });
+  });
+}
 
 // ----------------------------------------------------------------- init
 
+applyStoredPaneWidths();
+initResizeHandles();
+updateEmptyStates();
 addVariantInput();

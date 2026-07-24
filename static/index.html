@@ -10,71 +10,85 @@
   <h1>descrybe-constellation</h1>
   <div class="header-actions">
     <button id="layout-toggle" type="button">Timeline</button>
-    <button id="export-trail">Export trail</button>
-    <button id="export-snapshot">Export snapshot</button>
     <button id="view-dossier">Dossier</button>
-    <button id="export-dossier">Export dossier</button>
+    <div class="dropdown" id="export-dropdown">
+      <button id="export-toggle" type="button" aria-haspopup="true" aria-expanded="false">Export &#9662;</button>
+      <div id="export-menu" class="dropdown-menu" hidden>
+        <button id="export-trail" type="button">Export trail</button>
+        <button id="export-snapshot" type="button">Export snapshot</button>
+        <button id="export-dossier" type="button">Export dossier</button>
+      </div>
+    </div>
     <span class="note">research support, not legal advice</span>
   </div>
 </header>
 
 <main>
   <section id="pane-left">
-    <h2>Issue</h2>
-    <label>Seed issue
-      <textarea id="seed" rows="2" placeholder="e.g. implied warranty of habitability defense to eviction"></textarea>
-    </label>
-    <label>Jurisdiction (optional)
-      <input id="jurisdiction" type="text" placeholder="e.g. California">
-    </label>
+    <section id="stage-1" class="stage stage-expanded">
+      <h2 class="stage-header"><span class="stage-num">1</span> Search</h2>
+      <label>Seed issue
+        <textarea id="seed" rows="2" placeholder="e.g. implied warranty of habitability defense to eviction"></textarea>
+      </label>
+      <label>Jurisdiction (optional)
+        <input id="jurisdiction" type="text" placeholder="e.g. California">
+      </label>
 
-    <div id="variants">
-      <h3>Search variants</h3>
-      <div id="variant-list"></div>
-      <button id="add-variant" type="button">+ add variant</button>
-    </div>
-
-    <label class="checkbox-row">
-      <input id="harvest-labels" type="checkbox">
-      harvest issue labels from seed results
-    </label>
-
-    <label>Overlap threshold: <span id="threshold-value">0.5</span>
-      <input id="threshold" type="range" min="0" max="1" step="0.05" value="0.5">
-    </label>
-
-    <button id="search-btn" type="button">Search</button>
-
-    <div id="clusters"></div>
-
-    <button id="build-corpus-btn" type="button" disabled>Build Corpus</button>
-
-    <div id="hop-controls">
-      <h3>Citation hops</h3>
-      <button id="hop-backward" type="button" disabled>&#8634; Backward hop</button>
-      <div>
-        <button id="hop-forward" type="button" disabled>&#8635; Forward hop</button>
-        cap <input id="forward-cap" type="number" min="1" value="10" style="width:4em">
+      <div id="variants">
+        <h3>Search variants</h3>
+        <div id="variant-list"></div>
+        <button id="add-variant" type="button">+ add variant</button>
       </div>
-      <div id="calls-hint" class="hint"></div>
-    </div>
 
-    <div id="issue-filter">
-      <h3>Issue filter</h3>
-      <input id="issue-filter-input" type="text" placeholder="filter terms, e.g. habitability warranty">
-      <div>
-        <button id="issue-filter-btn" type="button">Filter</button>
-        <button id="issue-filter-clear" type="button">Clear</button>
+      <label class="checkbox-row">
+        <input id="harvest-labels" type="checkbox">
+        harvest issue labels from seed results
+      </label>
+
+      <label>Overlap threshold: <span id="threshold-value">0.5</span>
+        <input id="threshold" type="range" min="0" max="1" step="0.05" value="0.5">
+      </label>
+
+      <button id="search-btn" type="button">Search</button>
+      <div class="empty-hint">Search returns case clusters you can prune before building a corpus.</div>
+    </section>
+
+    <section id="stage-2" class="stage">
+      <h2 class="stage-header"><span class="stage-num">2</span> Clusters</h2>
+      <div class="stage-waiting" id="stage-2-waiting">waiting for search results</div>
+      <div class="stage-body" id="stage-2-body" style="display:none">
+        <div id="clusters"></div>
+        <button id="build-corpus-btn" type="button" disabled>Build Corpus</button>
       </div>
-      <div id="issue-filter-status" class="hint"></div>
-    </div>
+    </section>
+
+    <section id="stage-3" class="stage">
+      <h2 class="stage-header"><span class="stage-num">3</span> Hops</h2>
+      <div class="stage-waiting" id="stage-3-waiting">waiting for corpus</div>
+      <div class="stage-body" id="stage-3-body" style="display:none">
+        <div id="hop-controls">
+          <button id="hop-backward" type="button" disabled>&#8634; Backward hop</button>
+          <div>
+            <button id="hop-forward" type="button" disabled>&#8635; Forward hop</button>
+            cap <input id="forward-cap" type="number" min="1" value="10" style="width:4em">
+          </div>
+          <div id="calls-hint" class="hint"></div>
+        </div>
+      </div>
+    </section>
 
     <div id="status-line" class="status"></div>
   </section>
 
+  <div class="resize-handle" id="resize-left" data-target="left" title="drag to resize"></div>
+
   <section id="pane-center">
     <div id="cy"></div>
     <div id="timeline-axis"></div>
+    <div id="graph-match-badge" class="match-badge" hidden></div>
+    <div id="graph-empty" class="pane-empty">
+      <p>No corpus yet &mdash; search and build a corpus on the left to see the citation graph.</p>
+    </div>
     <div id="legend">
       <div class="legend-title">Legend</div>
       <div><span class="legend-swatch" style="background:#1f4e79"></span>high court</div>
@@ -87,14 +101,23 @@
     </div>
   </section>
 
+  <div class="resize-handle" id="resize-right" data-target="right" title="drag to resize"></div>
+
   <section id="pane-right">
+    <div id="filter-bar">
+      <input id="issue-filter-input" type="text" placeholder="filter terms, e.g. habitability warranty">
+      <button id="issue-filter-btn" type="button">Filter</button>
+      <button id="issue-filter-clear" type="button">Clear</button>
+      <span id="issue-filter-status" class="filter-status"></span>
+    </div>
+
     <div class="tabs">
       <button class="tab-btn active" data-tab="case">Case</button>
       <button class="tab-btn" data-tab="leading">Leading</button>
     </div>
 
     <div id="tab-case" class="tab-panel active">
-      <div id="case-empty">Click a node in the graph to view a case.</div>
+      <div id="case-empty">Build a corpus, then click a node to view a case.</div>
       <div id="case-card" style="display:none">
         <h3 id="case-name"></h3>
         <div id="case-meta"></div>
@@ -114,13 +137,17 @@
     </div>
 
     <div id="tab-leading" class="tab-panel">
-      <h3>Ranked top</h3>
-      <table id="ranked-table">
-        <thead><tr><th>cited-by</th><th>searches</th><th>court wt</th><th>name</th><th>date</th></tr></thead>
-        <tbody></tbody>
-      </table>
-      <h3>Foundational candidates</h3>
-      <ul id="foundational-list"></ul>
+      <div id="leading-empty" class="pane-empty pane-empty-inline">Leading and foundational cases will appear here once you build a corpus.</div>
+      <div id="leading-body" style="display:none">
+        <div id="leading-match-badge" class="match-badge" hidden></div>
+        <h3>Ranked top</h3>
+        <table id="ranked-table">
+          <thead><tr><th>cited-by</th><th>searches</th><th>court wt</th><th>name</th><th>date</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <h3>Foundational candidates</h3>
+        <ul id="foundational-list"></ul>
+      </div>
     </div>
   </section>
 </main>
