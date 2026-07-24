@@ -8,6 +8,12 @@ A local web app built on [Descrybe Legal Engine](https://github.com/descrybe-com
 
 Not legal advice — a research exploration tool. Outputs carry per-claim source labels (`[Descrybe]`, `[CourtListener]`, `[Needs verification]`) and treatment signals are always framed as screening results, not citator conclusions.
 
+![Timeline view with issue filter: habitability doctrine 1915–2020, court-level lanes, foundational cases ringed in purple, non-matching cases dimmed](docs/images/timeline-filter.jpg)
+
+*The habitability corpus on the timeline: court-level lanes, year axis, foundational authority (purple diamonds) clustered in the pre-1980 high-court band, and the issue filter dimming citation-network neighbors that don't discuss the issue — 51 of 122 match, honestly labeled.*
+
+**Try it without any accounts:** download [`demo/habitability-snapshot.html`](demo/habitability-snapshot.html) and open it in a browser — a self-contained interactive export of the graph above (no external requests, works from `file://`).
+
 ## Quickstart
 
 ```sh
@@ -55,7 +61,9 @@ The graph deliberately contains *all* citations, not just issue-relevant ones �
 
 Click any node (or row in the **Leading** tab, ranked by within-corpus citations → search membership → court weight — no composite scores). The case card shows court/date/citation counts tagged `[CourtListener]`, Descrybe's research-value and treatment lines, the full case summary, a status screening line, and a box to fetch a passage focused on any phrase.
 
-**Read case** opens the reader: the full opinion (CourtListener text, sanitized), with Descrybe's issue-focused passages located and highlighted inside it — prev/next navigation, tick marks in the scroll gutter, and an **Open official PDF** button. Passage locations are found by a measured matching pipeline (~89% anchor rate across two test corpora); passages that cannot be located in the opinion text are shown in a **[Needs verification]** block above the opinion rather than dropped — if Descrybe returned it but CourtListener's text doesn't contain it, you deserve to know.
+**Read case** opens the reader: the full opinion (CourtListener text, sanitized), with Descrybe's issue-focused passages located and highlighted inside it — prev/next navigation, tick marks in the scroll gutter, and an **Open official PDF** button.
+
+![The reader open on Green v. Superior Court, passage 2 of 3 highlighted — the "mutually dependent" holding — beside the filtered timeline](docs/images/reader.jpg) Passage locations are found by a measured matching pipeline (~89% anchor rate across two test corpora); passages that cannot be located in the opinion text are shown in a **[Needs verification]** block above the opinion rather than dropped — if Descrybe returned it but CourtListener's text doesn't contain it, you deserve to know.
 
 ### 7. Take it with you (header)
 
