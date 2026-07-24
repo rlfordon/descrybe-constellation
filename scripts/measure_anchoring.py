@@ -17,7 +17,6 @@ Rerun on a different corpus by editing SEED / JURISDICTION below, or by
 importing measure_case() / load_case_set() into another driver script.
 """
 
-import difflib
 import html
 import json
 import os
@@ -29,6 +28,7 @@ REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from constellation import bridge
+from constellation.anchor import FUZZY_THRESHOLD, fuzzy_locate, normalize, parse_passages
 from constellation.cache import Cache
 from constellation.cl import CourtListener
 from constellation.dscb import Descrybe
@@ -44,8 +44,6 @@ JURISDICTION = "California"
 # are checked and reported but not all populated.
 TEXT_FIELDS = ["plain_text", "html", "html_with_citations", "html_lawbox", "xml_harvard"]
 PRIMARY_FIELD = "html_with_citations"
-
-FUZZY_THRESHOLD = 0.85
 
 
 def load_env():
@@ -79,97 +77,11 @@ def html_to_text(markup):
     return html.unescape(_TAG_RE.sub(" ", markup))
 
 
-# ------------------------------------------------------------ passage parsing
-
-_PASSAGE_HEADER_RE = re.compile(r"^\s*\d+\.\s+Passage\s+\d+\s*$")
-_PASSAGE_TEXT_RE = re.compile(r"^\s+text:\s*(.*)$")
-
-
-def parse_passages(payload_text):
-    """Parse get_case_passages' structured-prose payload into a list of
-    passage strings.
-
-    Payload format (inspected live, never parsed before this script):
-
-        Returned N passages.
-
-        1. Passage 1
-           text: <passage text, one logical value, may wrap onto
-           continuation lines with no 'text:' prefix>
-        2. Passage 2
-           text: ...
-
-    Same shape family as dscb.parse_entries's numbered-entry parsing, but
-    single-field (no case_id/court/etc. -- just the text) and (empirically,
-    across this test set) no observed line-wrapping within a passage. The
-    continuation-line handling is kept anyway since the payload gives no
-    guarantee against it for longer passages.
-    """
-    passages, current = [], None
-    for line in payload_text.splitlines():
-        if _PASSAGE_HEADER_RE.match(line):
-            current = None
-            continue
-        m = _PASSAGE_TEXT_RE.match(line)
-        if m:
-            current = m.group(1)
-            passages.append(current)
-        elif current is not None and line.strip():
-            passages[-1] = passages[-1] + " " + line.strip()
-    return passages
-
-
-# ------------------------------------------------------------- normalization
-
-_QUOTES = {"“": '"', "”": '"', "‘": "'", "’": "'"}
-_DASHES = {"–": "-", "—": "-"}
-
-
-def normalize(text):
-    for a, b in {**_QUOTES, **_DASHES}.items():
-        text = text.replace(a, b)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip().lower()
-
-
-# ------------------------------------------------------------------- fuzzy locate
-
-def fuzzy_locate(passage_norm, text_norm, threshold=FUZZY_THRESHOLD,
-                  step_divisor=4, top_k=15, max_windows=4000):
-    """Sliding-window fuzzy locate: window size = len(passage_norm), stepped
-    across text_norm. Cheap difflib.quick_ratio() ranks all windows first
-    (a fast upper-bound), then the real .ratio() (actual SequenceMatcher
-    edit-similarity) is computed only for the top_k candidates -- makes the
-    O(n) windows x O(passage) ratio() cost tractable on ~100-200k char
-    opinions without approximating the reported best ratio.
-
-    Returns (best_ratio, located: bool).
-    """
-    n = len(passage_norm)
-    m = len(text_norm)
-    if n == 0 or m < n:
-        return 0.0, False
-    step = max(10, n // step_divisor)
-    if (m - n) // step + 1 > max_windows:
-        step = max(step, (m - n) // max_windows)
-
-    sm = difflib.SequenceMatcher(None, passage_norm, autojunk=False)
-    candidates = []
-    for start in range(0, m - n + 1, step):
-        window = text_norm[start:start + n]
-        sm.set_seq2(window)
-        candidates.append((sm.quick_ratio(), start))
-    # always check the final window too (range() may not land exactly on m-n)
-    if (m - n) % step != 0:
-        candidates.append((0.0, m - n))
-
-    candidates.sort(reverse=True)
-    best = 0.0
-    for _, start in candidates[:top_k]:
-        window = text_norm[start:start + n]
-        r = difflib.SequenceMatcher(None, passage_norm, window, autojunk=False).ratio()
-        best = max(best, r)
-    return best, best >= threshold
+# parse_passages, normalize, and fuzzy_locate now live in constellation/
+# anchor.py (imported above) -- factored out so the live case-reader
+# (constellation/reader.py) shares this exact implementation rather than
+# re-inventing it. Behavior unchanged from what produced the measured/gated
+# numbers in docs/research/2026-07-24-case-reader-feasibility.md.
 
 
 # ------------------------------------------------------------------ per-case

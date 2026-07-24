@@ -35,10 +35,17 @@ class FakeDescrybe:
         return "Fake status: no negative treatment found."
 
     def _text(self, tool, args):
-        # web.case_passages calls this private method directly (dscb.py has
-        # no get_case_passages wrapper); the fake mirrors that contract.
+        # web.case_passages/case_pdf call this private method directly
+        # (dscb.py has no get_case_passages/get_case_pdf wrapper); the fake
+        # mirrors that contract.
         if tool == "get_case_passages":
-            return f"Fake passage for {args.get('case_id')} on '{args.get('focus')}'."
+            return (
+                "Returned 1 passages.\n\n"
+                "1. Passage 1\n"
+                "   text: the implied warranty of habitability as a defense to an eviction action\n"
+            )
+        if tool == "get_case_pdf":
+            return f"PDF available at https://storage.example/{args.get('case_id')}.pdf"
         raise RuntimeError(f"unexpected tool {tool!r}")
 
 
@@ -61,8 +68,18 @@ class FakeCL:
                  "date_filed": "1900-01-01", "citation_count": 500},
     }
 
+    _OPINION_HTML = (
+        '<p id="para-1">Tenants may raise the implied warranty of habitability '
+        "as a defense to an eviction action, as this court holds.</p>"
+    )
+
     def opinion_ids(self, cluster_id):
         return [self._OPINION[cluster_id]]
+
+    def opinion_html(self, opinion_id):
+        if opinion_id == self._OPINION[1182285]:
+            return self._OPINION_HTML
+        return None  # Stoiber has no opinion text -- exercises the 404 path
 
     def cited_opinions(self, opinion_id):
         if opinion_id in self._OPINION.values():
@@ -220,3 +237,35 @@ def test_snapshot_export_embeds_graph_and_has_no_stray_urls(client):
     )
     assert "http://" not in stripped
     assert "https://" not in stripped
+
+
+def test_case_reader_returns_sanitized_html_and_anchored_passages(client):
+    client.post("/api/search", json={"seed": "implied warranty of habitability", "variants": []})
+    client.post("/api/corpus", json={"included_terms": ["implied warranty of habitability"]})
+
+    r = client.get("/api/case/c1182285/reader")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["meta"]["field"] == "html_with_citations"
+    assert body["meta"]["paragraph_count"] == 1
+    assert body["passages"][0]["status"] == "exact"
+    assert '<mark class="passage-hit"' in body["html"]
+    assert "http://" not in body["html"] and "https://" not in body["html"]
+    assert body["unanchored"] == []
+
+
+def test_case_reader_404s_with_detail_when_no_opinion_text(client):
+    client.post("/api/search", json={"seed": "implied warranty of habitability", "variants": []})
+    client.post("/api/corpus", json={"included_terms": ["implied warranty of habitability"]})
+
+    r = client.get("/api/case/c2134128/reader")  # FakeCL returns no opinion_html for Stoiber
+    assert r.status_code == 404
+    assert "detail" in r.json()
+
+
+def test_case_pdf_returns_raw_text_never_via_export(client):
+    r = client.get("/api/case/c1182285/pdf")
+    assert r.status_code == 200
+    body = r.json()
+    assert "raw" in body
+    assert "c1182285.pdf" in body["raw"]

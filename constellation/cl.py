@@ -54,6 +54,13 @@ class CourtListener:
         data = self._get(f"opinions/{opinion_id}/", fields="id,cluster_id")
         return data.get("cluster_id")
 
+    def opinion_html(self, opinion_id):
+        """html_with_citations for one opinion, or None if empty/absent --
+        the only opinion text field measured at 100% coverage (feasibility
+        report Sec 2); cached like every other call in this class."""
+        data = self._get(f"opinions/{opinion_id}/", fields="id,html_with_citations")
+        return data.get("html_with_citations") or None
+
     def cited_opinions(self, opinion_id):
         """Backward edges: the opinion's table of authorities, as opinion IDs."""
         data = self._get(f"opinions/{opinion_id}/", fields="id,opinions_cited")

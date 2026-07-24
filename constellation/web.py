@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from . import bridge
 from . import corpus as C
 from . import dossier as D
+from . import reader as R
 from .cache import Cache
 from .cl import CourtListener
 from .dscb import Descrybe, issue_labels
@@ -84,6 +85,14 @@ def case_passages(dscb, case_id, focus):
     the discovery spike never exercised it). Call the cached private _text
     bridge directly rather than editing dscb.py, per the build brief."""
     return dscb._text("get_case_passages", {"case_id": case_id, "focus": focus})
+
+
+def case_pdf(dscb, case_id):
+    """Same pattern as case_passages -- dscb.py has no get_case_pdf wrapper
+    either. Returns whatever raw text Descrybe's get_case_pdf gives back
+    (typically a URL or job info); never embedded in an export, live-app
+    only (ux-spec.md #11)."""
+    return dscb._text("get_case_pdf", {"case_id": case_id})
 
 
 # ------------------------------------------------------------------ state
@@ -287,6 +296,42 @@ def api_case(case_id, focus=None):
         result["passage"] = case_passages(dscb, case_id, focus)
     log_trail("view_case", f"case_id={case_id} focus={focus!r}")
     return result
+
+
+@app.get("/api/case/{case_id}/reader")
+def api_case_reader(case_id, focus=None):
+    """Case-reader view (ux-spec.md Phase 3): sanitized full opinion HTML
+    with Descrybe issue passages anchored into it. `focus` defaults to the
+    session's seed issue (§9) so a reader-open right after a search doesn't
+    require re-typing the issue. 404-with-detail (not a silent empty
+    reader) when no sub-opinion of the cluster has usable text -- an honest
+    failure the frontend can show, matching the app's existing convention."""
+    effective_focus = focus or STATE.get("seed") or ""
+    dscb = get_descrybe()
+    cl = get_cl()
+    try:
+        result = R.build_reader(case_id, effective_focus, cl, dscb)
+    except R.NoOpinionText as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(502, str(e))
+    log_trail("view_reader", f"case_id={case_id} focus={effective_focus!r} "
+                              f"opinion_id={result['meta']['opinion_id']} "
+                              f"paragraphs={result['meta']['paragraph_count']}")
+    return result
+
+
+@app.get("/api/case/{case_id}/pdf")
+def api_case_pdf(case_id):
+    """Descrybe get_case_pdf, passed through as {"raw": <text>} -- live app
+    only, never embedded in an export (ux-spec.md #11)."""
+    dscb = get_descrybe()
+    try:
+        raw = case_pdf(dscb, case_id)
+    except Exception as e:
+        raise HTTPException(502, str(e))
+    log_trail("view_pdf", f"case_id={case_id}")
+    return {"raw": raw}
 
 
 # --------------------------------------------------------------- exports
