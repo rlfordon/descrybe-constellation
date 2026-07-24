@@ -8,6 +8,14 @@ let clusters = [];
 let corpusBuilt = false;
 let layoutMode = "force"; // "force" | "timeline" -- toggled by #layout-toggle
 
+// Counter-scaling zoom (phase 2, ux-spec.md #7): divide node width/height/
+// font-size/border-width by this factor so glyph screen size stays constant
+// while positions spread apart on zoom-in. Updated from cy.zoom() on every
+// zoom/pan/resize event (rAF-throttled below) and read by the node style
+// functions in renderGraph.
+let zoomFactor = 1;
+let viewportRAF = null;
+
 function $(id) { return document.getElementById(id); }
 
 async function postJSON(url, body) {
@@ -203,6 +211,7 @@ function renderGraph(payload) {
   }));
 
   if (cy) cy.destroy();
+  zoomFactor = 1;
   cy = cytoscape({
     container: $("cy"),
     elements,
@@ -211,11 +220,11 @@ function renderGraph(payload) {
       { selector: "node", style: {
           "background-color": (ele) => COURT_LEVEL_COLORS[ele.data("node").court_level] || "#bbb",
           "shape": (ele) => ORIGIN_SHAPES[ele.data("node").origin] || "ellipse",
-          "width": (ele) => size(ele.data("node")),
-          "height": (ele) => size(ele.data("node")),
-          "border-width": (ele) => (ele.data("node").foundational ? 4 : 0),
+          "width": (ele) => size(ele.data("node")) / zoomFactor,
+          "height": (ele) => size(ele.data("node")) / zoomFactor,
+          "border-width": (ele) => (ele.data("node").foundational ? 4 : 0) / zoomFactor,
           "border-color": "#7b3fa0",
-          "label": "data(label)", "font-size": 8, "color": "#333",
+          "label": "data(label)", "font-size": () => 8 / zoomFactor, "color": "#333",
           "text-valign": "bottom", "text-wrap": "ellipsis", "text-max-width": "90px",
       } },
       { selector: "edge", style: {
@@ -226,8 +235,30 @@ function renderGraph(payload) {
     ],
   });
   cy.on("tap", "node", (evt) => loadCase(evt.target.data("node").case_id));
+  // Axis tracks pan/zoom (ux-spec.md #6) and counter-scaling (#7): re-derive
+  // zoomFactor and the timeline overlay from the live viewport on every
+  // zoom/pan/resize, and after every layout run (cose fit, timeline preset
+  // fit, or the force/timeline toggle) so the initial fit-computed zoom is
+  // picked up immediately, not just after the first manual pan/zoom.
+  cy.on("zoom pan resize", onCyViewportChange);
+  cy.on("layoutstop", applyZoomStyle);
 
   if (layoutMode === "timeline") layoutTimeline(); else hideTimelineAxis();
+}
+
+function applyZoomStyle() {
+  if (!cy) return;
+  zoomFactor = cy.zoom() || 1;
+  cy.style().update(); // force re-evaluation of the function-valued styles above
+}
+
+function onCyViewportChange() {
+  if (viewportRAF) return;
+  viewportRAF = requestAnimationFrame(() => {
+    viewportRAF = null;
+    applyZoomStyle();
+    if (layoutMode === "timeline") renderTimelineAxis();
+  });
 }
 
 // -------------------------------------------------------------- layout
@@ -239,6 +270,38 @@ function hashCode(s) {
 }
 
 const LANES = ["high", "appellate", "trial", "unknown"];
+
+// Timeline axis / lane overlay (ux-spec.md #6). Nodes are placed once in
+// Cytoscape *model* space by the preset layout below; timelineState records
+// the same model-space parameters (gutter/plotW/laneH/year range) so the
+// overlay can be re-rendered from scratch on every pan/zoom/resize event by
+// mapping model -> rendered coordinates the same way Cytoscape itself does:
+// rendered = cy.zoom() * model + cy.pan(). Without this the overlay is a
+// static div layer that drifts out of alignment with the nodes as soon as
+// the user pans or zooms (backlog.md, "Axis doesn't track pan/zoom").
+let timelineState = null;
+
+// Hand-rolled "nice" year-tick selection rather than vendoring d3-scale +
+// d3-axis. Evaluated vendoring first: d3-axis alone has no dependencies, but
+// its published UMD build (unpkg d3-scale@4.0.2/dist/d3-scale.js) is NOT
+// self-contained -- it requires d3-array, d3-interpolate, d3-format,
+// d3-time and d3-time-format as separate globals, and d3-axis itself expects
+// a d3-selection-style `.call()` target rather than a plain DOM node. That's
+// 6+ vendor files and a d3-selection dependency to render year ticks, well
+// past the "at most two small files" bar in the phase-2 spec, so this hand-
+// rolls the one thing d3-scale would have bought us: round tick steps.
+const NICE_YEAR_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000];
+
+function niceYearTicks(minY, maxY, targetCount) {
+  if (minY === maxY) return [minY];
+  const rough = (maxY - minY) / targetCount;
+  const step = NICE_YEAR_STEPS.find((s) => rough <= s) || NICE_YEAR_STEPS[NICE_YEAR_STEPS.length - 1];
+  const start = Math.ceil(minY / step) * step;
+  const ticks = [];
+  for (let y = start; y <= maxY; y += step) ticks.push(y);
+  if (!ticks.length) ticks.push(minY, maxY);
+  return ticks;
+}
 
 function layoutTimeline() {
   if (!cy) return;
@@ -277,31 +340,37 @@ function layoutTimeline() {
     fit: true, padding: 30,
   }).run();
 
-  renderTimelineAxis(minY, maxY, gutter, plotW, laneH);
+  timelineState = { minY, maxY, gutter, plotW, laneH };
+  renderTimelineAxis();
 }
 
-function renderTimelineAxis(minY, maxY, gutter, plotW, laneH) {
+function renderTimelineAxis() {
+  if (!cy || !timelineState) return;
+  const { minY, maxY, gutter, plotW, laneH } = timelineState;
+  const zoom = cy.zoom(), pan = cy.pan();
   const layer = $("timeline-axis");
   layer.innerHTML = "";
   layer.style.display = "block";
+
   LANES.forEach((name, i) => {
+    const modelY = 15 + i * laneH + laneH / 2;
     const lbl = document.createElement("div");
     lbl.className = "lane-label";
-    lbl.style.top = `${15 + i * laneH + laneH / 2 - 8}px`;
+    lbl.style.top = `${zoom * modelY + pan.y - 8}px`;
     lbl.textContent = name;
     layer.appendChild(lbl);
   });
+
   if (minY !== null && maxY !== null) {
-    const ticks = 6;
-    for (let i = 0; i <= ticks; i++) {
-      const frac = i / ticks;
-      const year = Math.round(minY + frac * (maxY - minY));
+    niceYearTicks(minY, maxY, 6).forEach((year) => {
+      const frac = maxY > minY ? (year - minY) / (maxY - minY) : 0.5;
+      const modelX = gutter + frac * plotW;
       const tick = document.createElement("div");
       tick.className = "year-tick";
-      tick.style.left = `${gutter + frac * plotW}px`;
+      tick.style.left = `${zoom * modelX + pan.x}px`;
       tick.textContent = year;
       layer.appendChild(tick);
-    }
+    });
   }
 }
 

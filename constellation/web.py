@@ -410,6 +410,16 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
     return {{ data: {{ source: String(e[0]), target: String(e[1]) }} }};
   }}));
 
+  // Counter-scaling zoom (ux-spec.md #7), mirrored from the live app's
+  // app.js so exported snapshots zoom the same way: divide node width/
+  // height/font-size/border-width by zoomFactor, recomputed from cy.zoom()
+  // on every zoom/pan/resize (rAF-throttled) via cy.style().update(). The
+  // moving timeline axis (#6) is not ported here -- the snapshot only ever
+  // uses the force (cose) layout (see comment above), so there is no axis
+  // overlay to keep glued to node positions in the first place.
+  var zoomFactor = 1;
+  var viewportRAF = null;
+
   var cy = cytoscape({{
     container: document.getElementById("cy"),
     elements: elements,
@@ -418,11 +428,11 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
       {{ selector: "node", style: {{
           "background-color": function (ele) {{ return courtLevelColors[ele.data("node").court_level] || "#bbb"; }},
           "shape": function (ele) {{ return originShapes[ele.data("node").origin] || "ellipse"; }},
-          "width": function (ele) {{ return size(ele.data("node")); }},
-          "height": function (ele) {{ return size(ele.data("node")); }},
-          "border-width": function (ele) {{ return ele.data("node").foundational ? 4 : 0; }},
+          "width": function (ele) {{ return size(ele.data("node")) / zoomFactor; }},
+          "height": function (ele) {{ return size(ele.data("node")) / zoomFactor; }},
+          "border-width": function (ele) {{ return (ele.data("node").foundational ? 4 : 0) / zoomFactor; }},
           "border-color": "#7b3fa0",
-          "label": "data(label)", "font-size": 8, "color": "#333",
+          "label": "data(label)", "font-size": function () {{ return 8 / zoomFactor; }}, "color": "#333",
           "text-valign": "bottom", "text-wrap": "ellipsis", "text-max-width": "80px",
       }} }},
       {{ selector: "edge", style: {{
@@ -431,6 +441,20 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
       }} }},
     ],
   }});
+
+  function applyZoomStyle() {{
+    zoomFactor = cy.zoom() || 1;
+    cy.style().update();
+  }}
+
+  cy.on("zoom pan resize", function () {{
+    if (viewportRAF) return;
+    viewportRAF = requestAnimationFrame(function () {{
+      viewportRAF = null;
+      applyZoomStyle();
+    }});
+  }});
+  cy.on("layoutstop", applyZoomStyle);
 
   cy.on("tap", "node", function (evt) {{
     var n = evt.target.data("node");
