@@ -39,6 +39,12 @@ Three panes:
 2. **Case pane** — headnote-style cards: Descrybe summary up front, issue-focused passage (`get_case_passages`) on demand; full opinions are never fetched for browsing.
 3. **Graph pane** — interactive directed graph (Cytoscape.js). Edge types rendered distinctly: backward = foundations, forward = later treatment (with both, the graph reads as a doctrine timeline). Nodes colored by court level, sized by within-corpus in-degree. Optional timeline layout. Click a node to expand either direction.
 
+### Amendments (2026-07-24, post-review)
+
+- **Timeline layout.** A client-side preset alternative to the force (cose) layout, toggled per-session: x = decision year scaled across the pane width (undated nodes to a left gutter), y = four lanes (high/appellate/trial/unknown) with jitter to reduce overlap. Year ticks and lane labels render as an absolutely-positioned div layer over the graph pane.
+- **Encoding.** Node color now encodes court level (`corpus.court_level`, a keyword heuristic parallel to `court_weight`, backfilled via `cl.court_of_cluster`); origin moved to shape (ellipse/diamond/triangle for search/backward/forward); size scales with `log(1 + citation_count)`, normalized [14, 64]. Foundational purple border unchanged. A small legend is always visible in the graph pane.
+- **Issue filter.** A batched post-hoc text filter (`cl.match_clusters_by_text`, fielded `cluster_id:` search, chunked ~40 ids) rather than composed `cites:` queries at each forward hop -- simpler, and the fielded query was verified live. Search-origin nodes are assumed matching (they already matched this issue by construction); only backward/forward nodes get a real text check. Non-matching nodes and their edges dim to 0.12 opacity; nothing is ever deleted.
+
 ## 5. Leading and foundational cases
 
 Ranking uses only explainable signals — no composite score, no vendor authority rank:

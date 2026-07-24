@@ -61,3 +61,58 @@ def test_rank_is_explainable_tuple_sort():
     assert ranked[0]["cluster_id"] == 2   # membership 2 beats 1 when no edges
     assert ranked[0]["search_membership"] == 2
     assert ranked[0]["cited_by_corpus"] == 0
+
+
+def test_court_level_mapping():
+    assert corpus.court_level("Supreme Court of the United States") == "high"
+    assert corpus.court_level("California Supreme Court") == "high"
+    assert corpus.court_level("United States Court of Appeals for the Ninth Circuit") == "appellate"
+    assert corpus.court_level("California Court of Appeal") == "appellate"
+    assert corpus.court_level("New York Appellate Division") == "appellate"
+    assert corpus.court_level("United States District Court for the Northern District of California") == "trial"
+    assert corpus.court_level("Superior Court of California, County of Los Angeles") == "trial"
+    assert corpus.court_level("Los Angeles Municipal Court") == "trial"
+    assert corpus.court_level(None) == "unknown"
+    assert corpus.court_level("Some Administrative Tribunal") == "unknown"
+
+
+class FakeCLCourts:
+    """court_of_cluster/cluster stand-in for enrich_nodes tests."""
+
+    def court_of_cluster(self, cluster_id):
+        return {"court": "California Court of Appeal", "court_id": "calctapp"}
+
+    def cluster(self, cluster_id):
+        return {"citation_count": 42}
+
+
+def test_enrich_nodes_backfills_court_and_citation_count():
+    results = {"seed": entries(1, 2)}
+    c = corpus.build_corpus(results, ["seed"])
+    c["nodes"][1]["court"] = None                # simulate a backward node missing court
+    c["nodes"][2]["citeCount"] = 7                # simulate a forward node's raw field
+    c["nodes"][2]["origin"] = "forward"
+
+    corpus.enrich_nodes(c, FakeCLCourts())
+
+    assert c["nodes"][1]["court"] == "California Court of Appeal"
+    assert c["nodes"][1]["court_level"] == "appellate"
+    assert c["nodes"][1]["citation_count"] == 42   # search-origin, backfilled via cluster()
+    assert c["nodes"][2]["citation_count"] == 7     # forward citeCount normalized
+    assert c["nodes"][2]["court_level"] == "appellate"  # court was also None -> backfilled
+
+
+def test_enrich_nodes_survives_lookup_failure():
+    class BrokenCL:
+        def court_of_cluster(self, cluster_id):
+            raise RuntimeError("network down")
+
+        def cluster(self, cluster_id):
+            raise RuntimeError("network down")
+
+    results = {"seed": entries(1)}
+    c = corpus.build_corpus(results, ["seed"])
+    c["nodes"][1]["court"] = None
+    corpus.enrich_nodes(c, BrokenCL())            # must not raise
+    assert c["nodes"][1]["court"] is None
+    assert c["nodes"][1]["court_level"] == "unknown"

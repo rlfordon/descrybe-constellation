@@ -90,7 +90,7 @@ def new_state():
     return {
         "seed": None, "jurisdiction": None,
         "results_by_term": {}, "clusters": [], "corpus": None,
-        "trail": [], "notes": [],
+        "trail": [], "notes": [], "issue_filter": None,
     }
 
 
@@ -108,21 +108,30 @@ def log_trail(action, detail):
 
 def graph_payload():
     """{nodes, edges, ranked_top, foundational} -- the shape GET /api/graph
-    and both exports build from."""
+    and both exports build from. Runs enrich_nodes every call (cached; a
+    per-node network error just leaves that node's court unknown) so court,
+    court_level and citation_count stay filled in after corpus build/expand
+    without a separate call site. Nodes carry issue_match true/false when a
+    filter is active in STATE, else null (never checked)."""
     corpus = STATE["corpus"]
     if corpus is None:
         return {"nodes": [], "edges": [], "ranked_top": [], "foundational": []}
+    C.enrich_nodes(corpus, get_cl())
     ranked = C.rank(corpus)
     found = C.foundational(ranked)
     found_ids = {n["cluster_id"] for n in found}
+    filt = STATE["issue_filter"]
+    matching_ids = filt["matching"] if filt else None
     nodes = [{
         "id": n["cluster_id"], "case_id": n["case_id"], "label": n["name"],
         "origin": n["origin"], "court": n.get("court"), "date": n.get("date"),
+        "court_level": n.get("court_level"), "citation_count": n.get("citation_count"),
         "cited_by_corpus": n["cited_by_corpus"],
         "search_membership": n["search_membership"],
         "court_weight": n["court_weight"],
         "foundational": n["cluster_id"] in found_ids,
         "treatment": n.get("treatment"), "research_value": n.get("research_value"),
+        "issue_match": (n["cluster_id"] in matching_ids) if matching_ids is not None else None,
     } for n in ranked]
     edges = [[src, dst] for src, dst in sorted(corpus["edges"])]
     return {"nodes": nodes, "edges": edges, "ranked_top": ranked[:15], "foundational": found}
@@ -224,6 +233,36 @@ def api_expand(req: ExpandRequest):
     return payload
 
 
+class IssueFilterRequest(BaseModel):
+    terms: str
+
+
+@app.post("/api/issue_filter")
+def api_issue_filter(req: IssueFilterRequest):
+    """Batched post-hoc text filter over the current corpus (design.md
+    amendments). Search-origin nodes are assumed matching -- they already
+    matched this issue by construction; only backward/forward-discovered
+    nodes get a real text check, via cl.match_clusters_by_text. Empty terms
+    clears the filter. Decorations land on the graph via graph_payload."""
+    if STATE["corpus"] is None:
+        raise HTTPException(400, "build corpus first")
+    terms = req.terms.strip()
+    if not terms:
+        STATE["issue_filter"] = None
+        log_trail("issue_filter", "cleared")
+        return {"matching": [], "checked": 0, "assumed": []}
+    nodes = STATE["corpus"]["nodes"]
+    assumed = sorted(cid for cid, n in nodes.items() if len(n.get("sources") or []) > 0)
+    to_check = sorted(set(nodes) - set(assumed))
+    cl = get_cl()
+    matched_text = cl.match_clusters_by_text(to_check, terms) if to_check else set()
+    matching = sorted(set(assumed) | set(matched_text))
+    STATE["issue_filter"] = {"terms": terms, "matching": set(matching)}
+    log_trail("issue_filter", f"terms={terms!r} matching={len(matching)} "
+                               f"checked={len(to_check)} assumed={len(assumed)}")
+    return {"matching": matching, "checked": len(to_check), "assumed": assumed}
+
+
 @app.get("/api/graph")
 def api_graph():
     return graph_payload()
@@ -309,6 +348,14 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
   #info {{ position: fixed; right: 1rem; top: 90px; width: 260px; max-height: 70vh;
           overflow: auto; background: #fff; border: 1px solid #ccc; border-radius: 6px;
           padding: 0.75rem; font-size: 0.85rem; display: none; }}
+  #legend {{ position: fixed; right: 1rem; bottom: 1rem; width: 200px;
+            background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 6px;
+            padding: 0.5rem 0.6rem; font-size: 0.7rem; color: #333; line-height: 1.5; }}
+  #legend .t {{ font-weight: 600; margin-bottom: 0.2rem; }}
+  #legend .sw {{ display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%;
+                margin-right: 0.3rem; vertical-align: middle; }}
+  #legend .ring {{ display: inline-block; width: 0.7rem; height: 0.7rem; border-radius: 50%;
+                   border: 2px solid #7b3fa0; margin-right: 0.3rem; vertical-align: middle; }}
 </style>
 </head>
 <body>
@@ -319,6 +366,19 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
 </header>
 <div id="cy"></div>
 <div id="info"></div>
+<!-- Legend: court-level color, origin shape, citation-count size, foundational ring.
+     Snapshot uses the force (cose) layout only -- timeline is a live-app feature,
+     out of scope for a static export (design.md Amendments, 2026-07-24). -->
+<div id="legend">
+  <div class="t">Legend</div>
+  <div><span class="sw" style="background:#1f4e79"></span>high court</div>
+  <div><span class="sw" style="background:#4a90d9"></span>appellate</div>
+  <div><span class="sw" style="background:#a7c7e7"></span>trial</div>
+  <div><span class="sw" style="background:#bbb"></span>unknown</div>
+  <div>&#9679; search &nbsp;&#9670; backward &nbsp;&#9650; forward</div>
+  <div>size = citations</div>
+  <div><span class="ring"></span>foundational</div>
+</div>
 <script id="cytoscape-vendor">
 {cyto_js}
 </script>
@@ -326,10 +386,19 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
 <script>
 (function () {{
   var data = JSON.parse(document.getElementById("graph-data").textContent);
-  var colors = {{ search: "#4a90d9", backward: "#d9984a", forward: "#6bbf6b" }};
-  var counts = data.nodes.map(function (n) {{ return n.cited_by_corpus || 0; }});
-  var max = Math.max(1, Math.max.apply(null, counts.concat([0])));
-  function size(n) {{ return 18 + (60 - 18) * ((n.cited_by_corpus || 0) / max); }}
+  var courtLevelColors = {{ high: "#1f4e79", appellate: "#4a90d9", trial: "#a7c7e7", unknown: "#bbb" }};
+  var originShapes = {{ search: "ellipse", backward: "diamond", forward: "triangle" }};
+  var counts = data.nodes.map(function (n) {{ return n.citation_count; }});
+  var haveCitation = counts.some(function (c) {{ return c !== null && c !== undefined; }});
+  function size(n) {{
+    if (haveCitation) {{
+      var logs = data.nodes.map(function (m) {{ return Math.log(1 + (m.citation_count || 0)); }});
+      var max = Math.max.apply(null, logs.concat([1e-6]));
+      return 14 + (64 - 14) * (Math.log(1 + (n.citation_count || 0)) / max);
+    }}
+    var maxCb = Math.max.apply(null, data.nodes.map(function (m) {{ return m.cited_by_corpus || 0; }}).concat([1]));
+    return 14 + (64 - 14) * ((n.cited_by_corpus || 0) / maxCb);
+  }}
 
   var elements = data.nodes.map(function (n) {{
     return {{ data: {{ id: String(n.id), label: n.label, node: n }} }};
@@ -343,7 +412,8 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
     layout: {{ name: "cose" }},
     style: [
       {{ selector: "node", style: {{
-          "background-color": function (ele) {{ return colors[ele.data("node").origin] || "#999"; }},
+          "background-color": function (ele) {{ return courtLevelColors[ele.data("node").court_level] || "#bbb"; }},
+          "shape": function (ele) {{ return originShapes[ele.data("node").origin] || "ellipse"; }},
           "width": function (ele) {{ return size(ele.data("node")); }},
           "height": function (ele) {{ return size(ele.data("node")); }},
           "border-width": function (ele) {{ return ele.data("node").foundational ? 4 : 0; }},
@@ -364,7 +434,8 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
     info.style.display = "block";
     info.innerHTML = "<b>" + n.label + "</b><br>" +
       (n.court || "") + " &mdash; " + (n.date || "") + "<br>" +
-      "origin: " + n.origin + "<br>" +
+      "origin: " + n.origin + " &mdash; court level: " + (n.court_level || "unknown") + "<br>" +
+      "citations: " + (n.citation_count ?? "?") + "<br>" +
       "cited-by-corpus: " + n.cited_by_corpus + "<br>" +
       (n.foundational ? "<b>foundational</b><br>" : "");
   }});

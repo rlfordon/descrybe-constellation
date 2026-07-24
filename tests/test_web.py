@@ -44,11 +44,22 @@ class FakeDescrybe:
 
 class FakeCL:
     """Both fixture clusters (1182285, 2134128) cite one shared outside
-    opinion -- exercises the backward hop's foundational-candidate path."""
+    opinion -- exercises the backward hop's foundational-candidate path.
+    Also backs enrich_nodes (court_of_cluster/cluster) and the issue-filter
+    flow (match_clusters_by_text)."""
 
     _OPINION = {1182285: 11822850, 2134128: 21341280}
     _OUTSIDE_OPINION = 9999900
     _OUTSIDE_CLUSTER = 999900
+
+    _CLUSTER_META = {
+        1182285: {"id": 1182285, "case_name": "Green v. Superior Court",
+                  "date_filed": "1974-01-15", "citation_count": 233},
+        2134128: {"id": 2134128, "case_name": "Stoiber v. Honeychuck",
+                  "date_filed": "1980-02-05", "citation_count": 94},
+        999900: {"id": 999900, "case_name": "Foundational Case",
+                 "date_filed": "1900-01-01", "citation_count": 500},
+    }
 
     def opinion_ids(self, cluster_id):
         return [self._OPINION[cluster_id]]
@@ -63,12 +74,17 @@ class FakeCL:
         return self._OUTSIDE_CLUSTER
 
     def cluster(self, cluster_id):
-        assert cluster_id == self._OUTSIDE_CLUSTER
-        return {"id": cluster_id, "case_name": "Foundational Case",
-                "date_filed": "1900-01-01", "citation_count": 500}
+        return self._CLUSTER_META[cluster_id]
 
     def citing_clusters(self, opinion_id, max_pages=3):
         return [], 0, False
+
+    def court_of_cluster(self, cluster_id):
+        return {"court": "Fake Trial Court", "court_id": "fake"}
+
+    def match_clusters_by_text(self, cluster_ids, terms):
+        # only the outside/foundational cluster "matches" the filter text
+        return {cid for cid in cluster_ids if cid == self._OUTSIDE_CLUSTER}
 
 
 @pytest.fixture(autouse=True)
@@ -132,6 +148,44 @@ def test_expand_backward_adds_foundational_candidate(client):
 
 def test_expand_requires_corpus_first(client):
     r = client.post("/api/expand", json={"direction": "backward"})
+    assert r.status_code == 400
+
+
+def test_graph_nodes_carry_court_level_and_citation_count(client):
+    client.post("/api/search", json={"seed": "seed term", "variants": [], "threshold": 0.5})
+    r = client.post("/api/corpus", json={"included_terms": ["seed term"]})
+    nodes = {n["id"]: n for n in r.json()["nodes"]}
+    # search-origin: citation_count backfilled from FakeCL.cluster
+    assert nodes[1182285]["citation_count"] == 233
+    assert nodes[1182285]["court_level"] in ("high", "appellate", "trial", "unknown")
+
+
+def test_issue_filter_assumes_search_origin_and_checks_others(client):
+    client.post("/api/search", json={"seed": "seed term", "variants": [], "threshold": 0.5})
+    client.post("/api/corpus", json={"included_terms": ["seed term"]})
+    client.post("/api/expand", json={"direction": "backward"})  # adds the outside cluster
+
+    r = client.post("/api/issue_filter", json={"terms": "habitability warranty"})
+    assert r.status_code == 200
+    body = r.json()
+    assert set(body["assumed"]) == {1182285, 2134128}          # search-origin, assumed matching
+    assert FakeCL._OUTSIDE_CLUSTER in body["matching"]           # text-matched via FakeCL
+    assert body["checked"] == 1                                   # only the backward node needed a check
+    assert set(body["matching"]) == {1182285, 2134128, FakeCL._OUTSIDE_CLUSTER}
+
+    r = client.get("/api/graph")
+    nodes = {n["id"]: n for n in r.json()["nodes"]}
+    assert nodes[1182285]["issue_match"] is True
+    assert nodes[FakeCL._OUTSIDE_CLUSTER]["issue_match"] is True
+
+    r = client.post("/api/issue_filter", json={"terms": ""})       # clear
+    assert r.json() == {"matching": [], "checked": 0, "assumed": []}
+    r = client.get("/api/graph")
+    assert all(n["issue_match"] is None for n in r.json()["nodes"])
+
+
+def test_issue_filter_requires_corpus_first(client):
+    r = client.post("/api/issue_filter", json={"terms": "x"})
     assert r.status_code == 400
 
 

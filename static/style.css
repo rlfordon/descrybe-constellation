@@ -130,3 +130,69 @@ tr.row-clickable:hover { background: #f0f6ff; }
 #foundational-list { font-size: 0.78rem; padding-left: 1.1rem; }
 #foundational-list li { cursor: pointer; margin-bottom: 0.2rem; }
 #foundational-list li:hover { color: #4a90d9; }
+
+#issue-filter { margin-top: 0.8rem; }
+#issue-filter input { margin-bottom: 0.3rem; }
+#issue-filter-status { font-size: 0.75rem; color: #444; margin-top: 0.2rem; }
+
+#legend {
+  position: absolute;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  width: 190px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.7rem;
+  color: #333;
+  line-height: 1.55;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.legend-title { font-weight: 600; margin-bottom: 0.2rem; }
+
+.legend-swatch {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+.legend-ring {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 2px solid #7b3fa0;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+#timeline-axis {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.year-tick {
+  position: absolute;
+  bottom: 4px;
+  transform: translateX(-50%);
+  font-size: 0.65rem;
+  color: #666;
+}
+
+.lane-label {
+  position: absolute;
+  left: 4px;
+  font-size: 0.7rem;
+  color: #666;
+  text-transform: capitalize;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0 0.2rem;
+}

@@ -170,6 +170,52 @@ def court_weight(court_name):
     return 1
 
 
+_COURT_LEVEL = [
+    ("high", re.compile(r"supreme|court of last resort", re.I)),
+    ("appellate", re.compile(r"court of appeal|appellate|circuit", re.I)),
+    ("trial", re.compile(r"district|superior|municipal|justice|county", re.I)),
+]
+
+
+def court_level(court_name_or_id):
+    """high/appellate/trial/unknown -- keyword heuristic like court_weight."""
+    name = court_name_or_id or ""
+    for level, pat in _COURT_LEVEL:
+        if pat.search(name):
+            return level
+    return "unknown"
+
+
+def enrich_nodes(corpus, cl):
+    """Backfill court (via cl.court_of_cluster) for nodes whose court is
+    None, normalize citation_count across origins (backward nodes already
+    have it; forward nodes' citeCount is renamed; search-origin nodes pull
+    it from cl.cluster, already cached), and set court_level on every node.
+    A per-node network error leaves that node's court unknown -- never
+    raises, so one bad lookup can't fail the whole request."""
+    nodes = corpus["nodes"]
+    for cid, n in nodes.items():
+        if n.get("court") is None:
+            try:
+                info = cl.court_of_cluster(cid)
+            except Exception:
+                info = {}
+            if info.get("court"):
+                n["court"] = info["court"]
+            if info.get("court_id"):
+                n["court_id"] = info["court_id"]
+        if n.get("citation_count") is None:
+            if n.get("citeCount") is not None:
+                n["citation_count"] = n["citeCount"]
+            elif n["origin"] == "search":
+                try:
+                    n["citation_count"] = cl.cluster(cid).get("citation_count")
+                except Exception:
+                    pass
+        n["court_level"] = court_level(n.get("court"))
+    return nodes
+
+
 def rank(corpus):
     """Leading cases by explainable signals only. Returns nodes decorated with
     cited_by_corpus / search_membership / court_weight, sorted lexically by

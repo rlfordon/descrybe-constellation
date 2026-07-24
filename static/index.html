@@ -9,6 +9,7 @@
 <header id="app-header">
   <h1>descrybe-constellation</h1>
   <div class="header-actions">
+    <button id="layout-toggle" type="button">Timeline</button>
     <button id="export-trail">Export trail</button>
     <button id="export-snapshot">Export snapshot</button>
     <span class="note">research support, not legal advice</span>
@@ -56,11 +57,32 @@
       <div id="calls-hint" class="hint"></div>
     </div>
 
+    <div id="issue-filter">
+      <h3>Issue filter</h3>
+      <input id="issue-filter-input" type="text" placeholder="filter terms, e.g. habitability warranty">
+      <div>
+        <button id="issue-filter-btn" type="button">Filter</button>
+        <button id="issue-filter-clear" type="button">Clear</button>
+      </div>
+      <div id="issue-filter-status" class="hint"></div>
+    </div>
+
     <div id="status-line" class="status"></div>
   </section>
 
   <section id="pane-center">
     <div id="cy"></div>
+    <div id="timeline-axis"></div>
+    <div id="legend">
+      <div class="legend-title">Legend</div>
+      <div><span class="legend-swatch" style="background:#1f4e79"></span>high court</div>
+      <div><span class="legend-swatch" style="background:#4a90d9"></span>appellate</div>
+      <div><span class="legend-swatch" style="background:#a7c7e7"></span>trial</div>
+      <div><span class="legend-swatch" style="background:#bbb"></span>unknown</div>
+      <div>&#9679; search &nbsp;&#9670; backward &nbsp;&#9650; forward</div>
+      <div>size = citations</div>
+      <div><span class="legend-ring"></span>foundational</div>
+    </div>
   </section>
 
   <section id="pane-right">
