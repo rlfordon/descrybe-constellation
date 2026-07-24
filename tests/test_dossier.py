@@ -151,6 +151,21 @@ def test_descrybe_failure_yields_needs_verification_not_exception(client, monkey
     assert "[Needs verification]" in r.text
 
 
+def test_dossier_lists_only_included_terms(client):
+    # a search that was RUN but not INCLUDED at corpus build must not appear
+    # under "Included search terms" (regression: dossier used to list every
+    # entry in results_by_term)
+    client.post("/api/search", json={
+        "seed": "implied warranty of habitability",
+        "variants": ["an excluded variant search"], "threshold": 0.5,
+    })
+    client.post("/api/corpus", json={"included_terms": ["implied warranty of habitability"]})
+    r = client.get("/dossier")
+    assert r.status_code == 200
+    assert "an excluded variant search" not in r.text
+    assert "implied warranty of habitability" in r.text
+
+
 def test_dossier_requires_corpus_first(client):
     r = client.get("/dossier")
     assert r.status_code == 400

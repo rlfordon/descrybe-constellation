@@ -169,7 +169,10 @@ def build_dossier_html(state, dscb, corpus_mod, top_n=8, download=False):
     seed = state.get("seed") or "(no seed)"
     jurisdiction = state.get("jurisdiction") or "(none specified)"
     now = datetime.now().astimezone().isoformat()
-    terms = sorted(state.get("results_by_term") or {})
+    # only terms the user actually included at corpus build -- searches that
+    # were run but excluded must not appear (fallback: node provenance)
+    terms = sorted(state.get("included_terms")
+                   or {t for n in corpus["nodes"].values() for t in n.get("sources", ())})
 
     ranked = corpus_mod.rank(corpus)
     leading = [n for n in ranked if n.get("search_membership", 0) > 0][:top_n]
@@ -223,7 +226,7 @@ def build_dossier_html(state, dscb, corpus_mod, top_n=8, download=False):
   {cautions_html}
 </main>
 <footer>
-  <p>Corpus: {n_nodes} case(s), {n_edges} edge(s), {n_searches} search(es) run.</p>
+  <p>Corpus: {n_nodes} case(s), {n_edges} edge(s), {n_searches} included search(es).</p>
   <p>Generated: {now}</p>
   <div class="legend">
     <div><span class="tag">[Descrybe]</span> retrieved content (summary, issue passage, status screening)</div>

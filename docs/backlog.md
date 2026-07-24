@@ -22,7 +22,7 @@ deliberately parked — resolve open design questions first, then batch.
 - Works functionally as intended; UX is rough (placement, feedback, clearing,
   discoverability). Fold into the UX/UI pass below rather than patching.
 
-## UX/UI pass (planned, after open questions resolve)
+## UX/UI pass (in progress 2026-07-24 — research phase running)
 
 Big coordinated pass rather than incremental patches: research phase first
 (survey comparable graph/timeline research tools and visualization idioms;
@@ -31,6 +31,18 @@ Scope includes: left-pane flow (search → clusters → hops reads as a wall of
 controls), filter affordances, case-card layout with 23k-char summaries,
 legend/encoding legibility, empty states, and the header button sprawl
 (dossier/trail/snapshot exports).
+
+Decided inputs (maintainer, 2026-07-24):
+- The issue filter applies to the right-pane Leading/Case column as well as
+  the graph — one filter state, every view respects it.
+- The filter belongs with "review"-type controls (right side / analysis
+  surface), not the "build"-type controls on the left.
+- Columns become resizable. Hideable/collapsible: adopt only if the survey
+  supports it.
+- Case-reader feature (part UX, part feature): fetch the full opinion text,
+  highlight the Descrybe "on this issue" passages within it, and make them
+  jump-to-able — reading the case with its issue-relevant passages lit up.
+  Feasibility (passage→opinion-text anchoring) under measurement.
 
 ## HTML research trail (explicitly wanted)
 

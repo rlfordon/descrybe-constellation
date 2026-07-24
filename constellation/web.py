@@ -92,6 +92,7 @@ def new_state():
     return {
         "seed": None, "jurisdiction": None,
         "results_by_term": {}, "clusters": [], "corpus": None,
+        "included_terms": [],
         "trail": [], "notes": [], "issue_filter": None,
     }
 
@@ -205,6 +206,7 @@ def api_corpus(req: CorpusRequest):
         raise HTTPException(400, "run /api/search first")
     corpus = C.build_corpus(STATE["results_by_term"], req.included_terms)
     STATE["corpus"] = corpus
+    STATE["included_terms"] = list(req.included_terms)
     log_trail("corpus", f"included_terms={req.included_terms} nodes={len(corpus['nodes'])}")
     return graph_payload()
 
