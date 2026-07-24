@@ -18,7 +18,7 @@ Not legal advice; a research exploration tool. Outputs carry per-claim source la
 
 **Hop 0:** case results of the seed issue (Descrybe `search_cases_by_concept`, `search_focus: "legal_issue"`).
 
-**Issue hops.** Related issues returned by the legal-issue search are frequently near-duplicates. They are deduped into *clusters* by result overlap: two issues whose top-k case results have high Jaccard similarity are treated as one cluster (tool-native similarity — no embeddings). Cluster inclusion is **opt-out**: clusters above an overlap threshold with the seed's results are included automatically; an "included issues" chip row makes pruning one click, with the graph updating live. The threshold is a user-facing slider (real-world overlap distributions unknown until the spike, §8). Including a cluster unions its case results into the corpus.
+**Issue hops** *(revised per spike F2 — no related-issues payload exists on the MCP surface)*. Issue hops are synthesized as **search-variant hops**: from the seed issue, generate variant formulations (narrower fact-specific, broader doctrine-level, opposing framings — optionally harvesting the per-case "likely issue" labels search results carry), run each as its own search, and dedupe the *searches* into clusters by result overlap: two searches whose top-k case results have high Jaccard similarity are treated as one cluster (tool-native similarity — no embeddings). Cluster inclusion is **opt-out**: clusters above an overlap threshold with the seed's results are included automatically; an "included searches" chip row makes pruning one click, with the graph updating live. The threshold is a user-facing slider. Including a cluster unions its case results into the corpus (per-search yield is 8 detailed cases — spike F3 — so variant breadth matters). If Descrybe later exposes its issue graph over MCP, vendor issues slot into this same clustering unchanged.
 
 **Citation hops.** The citation network expands from corpus cases via CourtListener, in both directions:
 
@@ -27,11 +27,9 @@ Not legal advice; a research exploration tool. Outputs carry per-claim source la
 
 Each axis has its own hop-depth control. Expansion is always an explicit user action with a "this will make ~N calls" preview; the app never auto-crawls.
 
-## 3. ID-mapping layer (the one novel component)
+## 3. ID bridge *(collapsed per spike F1)*
 
-Descrybe and CourtListener use disjoint ID namespaces (`c1514149` vs. opinion/cluster IDs). Mapping goes through the reporter citation: Descrybe case details → citation string → CourtListener citation-lookup → opinion ID (and the reverse for citer-discovered cases entering the corpus, via Descrybe `find_case_from_reference`). Mappings are cached permanently.
-
-**Failure mode is explicit:** a case that won't map cleanly stays in the graph as an edge-light node flagged `unmapped` — it never silently vanishes. Unmapped rates are surfaced in the UI; cross-corpus coverage is the load-bearing assumption of this design and gets measured, not presumed.
+The namespaces turn out to be shared: Descrybe `case_id` = `"c"` + CourtListener **cluster** ID (verified 8/8 on the spike seed). The bridge is a prefix strip plus one `clusters/{id}` fetch to resolve `sub_opinions` → opinion IDs for citation queries. Because this coupling is undocumented, every first fetch asserts name similarity between the two records; a mismatch flags the node `unmapped` (edge-light, never silently dropped) and surfaces in the UI. Mappings and assertions are cached permanently.
 
 ## 4. Graph model and UI
 
@@ -63,20 +61,14 @@ Ranking uses only explainable signals — no composite score, no vendor authorit
 - **Research-trail export:** the exploration path (issues included, cases visited, expansions run) as Markdown with per-claim source labels — `[Descrybe]`, `[CourtListener]`, `[Model reasoning]`, `[Needs verification]` — and a research-current-through timestamp.
 - **Static snapshot export:** a self-contained interactive HTML file of the current graph, viewable without any credentials. Canned snapshots in the README serve as live demos.
 
-## 8. Discovery spike (build step 1)
+## 8. Discovery spike — **done 2026-07-24**
 
-Real calls before any app code, to pin down:
-
-1. Shape of the related-issues payload from `search_focus: "legal_issue"` (and current issue-duplication behavior).
-2. What `find_cases_that_cite` returns (metadata vs. bare IDs) — retained as a possible forward-edge cross-check even though CourtListener is the primary graph source.
-3. CourtListener citation-lookup hit-rate on a real Descrybe result set (the §3 coverage measurement).
-4. `opinions_cited` completeness/format on the mapped opinions; `cites:` result counts and paging.
-5. Result-set sizes per issue (drives Jaccard k and threshold defaults).
+Findings in [`spike-findings.md`](spike-findings.md). Headlines: shared ID namespaces (F1, collapses §3); no related-issues payload on the MCP surface (F2, revises §2); structured-prose payloads detail-capped at 8 cases with embedded treatment/research-value fields (F3); CourtListener decisively the graph source — 71 backward / 114 forward edges for the anchor case vs. 25 forward from Descrybe (F4); summaries are headnote-grade at ~23k chars (F5).
 
 ## 9. Build order
 
-1. Discovery spike (`scripts/spike.py`), findings recorded in `docs/spike-findings.md`.
-2. Cache + ID-mapping layer, tested against spike fixtures.
+1. ~~Discovery spike~~ — done; `scripts/spike.py`, findings in `docs/spike-findings.md`.
+2. Cache + ID bridge (prefix strip + name-assertion), tested against spike fixtures.
 3. Corpus engine (hop logic, clustering, ranking) — pure functions over the cache, UI-independent.
 4. Web app (FastAPI + Cytoscape.js) over the corpus engine.
 5. Exports (trail Markdown, static snapshot).

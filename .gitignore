@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 .venv/
 snapshots/
+spike_output/
+.DS_Store
