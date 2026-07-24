@@ -382,7 +382,10 @@ def export_snapshot():
         raise HTTPException(500, "cytoscape.min.js is not vendored; see server startup log")
     cyto_js = VENDOR_JS.read_text()
     payload = graph_payload()
-    graph_json = json.dumps({"nodes": payload["nodes"], "edges": payload["edges"]})
+    # "</" -> "<\/" so no case name can close the embedding <script> tag
+    graph_json = json.dumps(
+        {"nodes": payload["nodes"], "edges": payload["edges"]}
+    ).replace("</", "<\\/")
     html = SNAPSHOT_TEMPLATE.format(
         seed=escape(STATE["seed"] or "(no seed)"),
         ts=datetime.now().astimezone().isoformat(),
