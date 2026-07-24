@@ -1,0 +1,21 @@
+Returned 15 matching cases.
+
+1. Green v. Superior Court, 10 Cal. 3d 616; 1974 Cal. LEXIS 349; 111 Cal. Rptr. 704; 517 P.2d 1168
+   case_id: c1182285
+   court/date: California Supreme Court; 1974-01-15
+   why relevant: Matches the likely issue: Implied Warranty of Habitability.
+   research value: Leading authority - This case is a strong anchor for the selected issue and is a good place to start.
+   url: https://example.invalid/case-viewer/c1182285/REDACTED
+
+2. Stoiber v. Honeychuck, 101 Cal. App. 3d 903; 1980 Cal. App. LEXIS 1450; 162 Cal. Rptr. 194
+   case_id: c2134128
+   court/date: California Court of Appeal; 1980-02-05
+   why relevant: Semantically matches the search concept.
+   research value: Background context - This case may provide context, but it is not
+   one of the strongest matches for this issue.
+   treatment: Later cases include some distinguishing or cautionary treatment, but no strong negative signal.
+   snippet: A tenant can argue that they have paid rent or left a security deposit with
+   the landlord to offset due rent.
+   url: https://example.invalid/case-viewer/c2134128/REDACTED
+
+Showing 2 of 15 returned cases.
