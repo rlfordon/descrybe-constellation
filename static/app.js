@@ -230,7 +230,11 @@ function renderGraph(payload) {
           "text-valign": "bottom", "text-wrap": "ellipsis", "text-max-width": "90px",
       } },
       { selector: "edge", style: {
-          "width": 1, "line-color": "#bbb", "target-arrow-color": "#bbb",
+          // counter-scaled like the nodes: arrowheads scale with edge width,
+          // so a static width leaves gigantic arrows when zoomed in
+          "width": () => 1 / zoomFactor,
+          "arrow-scale": () => 1 / zoomFactor,
+          "line-color": "#bbb", "target-arrow-color": "#bbb",
           "target-arrow-shape": "triangle", "curve-style": "bezier",
       } },
       { selector: ".dim", style: { "opacity": 0.12 } },

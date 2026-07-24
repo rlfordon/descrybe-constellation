@@ -436,7 +436,9 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
           "text-valign": "bottom", "text-wrap": "ellipsis", "text-max-width": "80px",
       }} }},
       {{ selector: "edge", style: {{
-          "width": 1, "line-color": "#bbb", "target-arrow-color": "#bbb",
+          "width": function () {{ return 1 / zoomFactor; }},
+          "arrow-scale": function () {{ return 1 / zoomFactor; }},
+          "line-color": "#bbb", "target-arrow-color": "#bbb",
           "target-arrow-shape": "triangle", "curve-style": "bezier",
       }} }},
     ],
