@@ -403,6 +403,8 @@ document.querySelectorAll(".tab-btn").forEach((b) => b.addEventListener("click",
 
 $("export-trail").addEventListener("click", () => window.open("/api/export/trail", "_blank"));
 $("export-snapshot").addEventListener("click", () => window.open("/api/export/snapshot", "_blank"));
+$("view-dossier").addEventListener("click", () => window.open("/dossier", "_blank"));
+$("export-dossier").addEventListener("click", () => window.open("/api/export/dossier", "_blank"));
 
 // ----------------------------------------------------------------- init
 

@@ -5,6 +5,7 @@ local single-user tool, not a multi-tenant server.
 
 import json
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime
 from html import escape
@@ -18,6 +19,7 @@ from pydantic import BaseModel
 
 from . import bridge
 from . import corpus as C
+from . import dossier as D
 from .cache import Cache
 from .cl import CourtListener
 from .dscb import Descrybe, issue_labels
@@ -465,3 +467,34 @@ def export_snapshot():
     )
     log_trail("export_snapshot", f"nodes={len(payload['nodes'])}")
     return HTMLResponse(html)
+
+
+def slugify(text):
+    """Filesystem/header-safe slug for export filenames."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return slug or "dossier"
+
+
+def _dossier_html(top_n):
+    if STATE["corpus"] is None:
+        raise HTTPException(400, "build corpus first")
+    top_n = max(1, min(25, top_n))
+    dscb = get_descrybe()
+    return D.build_dossier_html(STATE, dscb, C, top_n=top_n)
+
+
+@app.get("/dossier")
+def dossier_view(top_n: int = 8):
+    html = _dossier_html(top_n)
+    log_trail("view_dossier", f"top_n={top_n}")
+    return HTMLResponse(html)
+
+
+@app.get("/api/export/dossier")
+def export_dossier(top_n: int = 8):
+    html = _dossier_html(top_n)
+    filename = f"dossier-{slugify(STATE['seed'])}.html"
+    log_trail("export_dossier", f"top_n={top_n} filename={filename}")
+    return HTMLResponse(
+        html, headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )

@@ -66,6 +66,7 @@ Ranking uses only explainable signals — no composite score, no vendor authorit
 
 - **Research-trail export:** the exploration path (issues included, cases visited, expansions run) as Markdown with per-claim source labels — `[Descrybe]`, `[CourtListener]`, `[Model reasoning]`, `[Needs verification]` — and a research-current-through timestamp.
 - **Static snapshot export:** a self-contained interactive HTML file of the current graph, viewable without any credentials. Canned snapshots in the README serve as live demos.
+- **Issue dossier:** a server-rendered, self-contained HTML document for the current corpus -- leading cases (issue-relevant, not just high in-degree), foundational genealogy, and treatment cautions, each case entry carrying its Descrybe summary, issue-focused passage, and status screening. It is *assembled, not generated*: every sentence is retrieved API text with a `[Descrybe]`/`[CourtListener]` source label, because Descrybe's MCP surface exposes no issue-level object (§2, spike F2) -- only per-case summaries and per-case passages -- so an issue-centric document has to be built by composing case-level parts, not by asking a model to write one.
 
 ## 8. Discovery spike — **done 2026-07-24**
 
