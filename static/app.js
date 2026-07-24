@@ -53,7 +53,8 @@ function updateEmptyStates() {
   $("leading-body").style.display = corpusBuilt ? "block" : "none";
   if (!corpusBuilt) {
     $("case-empty").textContent = "Build a corpus, then click a node to view a case.";
-  } else if ($("case-card").style.display === "none") {
+    $("case-reader").style.display = "none";
+  } else if ($("case-card").style.display === "none" && $("case-reader").style.display === "none") {
     $("case-empty").textContent = "Click a node in the graph to view a case.";
   }
 }
@@ -491,6 +492,7 @@ async function loadCase(caseId, focus) {
     const data = await getJSON(url);
     const node = currentGraph.nodes.find((n) => n.case_id === caseId) || {};
     $("case-empty").style.display = "none";
+    $("case-reader").style.display = "none";
     $("case-card").style.display = "block";
     $("case-name").textContent = node.label || caseId;
     $("case-meta").innerHTML = `<span class="tag">[CourtListener]</span> ` +

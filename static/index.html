@@ -123,6 +123,9 @@
         <div id="case-meta"></div>
         <div id="case-numbers"></div>
         <div id="case-treatment"></div>
+        <div class="case-actions">
+          <button id="read-case-btn" type="button">Read case</button>
+        </div>
         <details id="case-summary-wrap">
           <summary><span class="tag">[Descrybe]</span> Summary</summary>
           <div id="case-summary"></div>
@@ -133,6 +136,24 @@
           <button id="focus-btn" type="button">Get passage</button>
         </div>
         <div id="case-passage"></div>
+      </div>
+
+      <div id="case-reader" style="display:none">
+        <div id="reader-header">
+          <button id="reader-back" type="button">&larr; back to card</button>
+          <span id="reader-case-name"></span>
+          <button id="reader-pdf-btn" type="button">Open official PDF</button>
+          <span id="reader-passage-counter" class="reader-counter"></span>
+          <button id="reader-prev" type="button" title="previous passage">&uarr;</button>
+          <button id="reader-next" type="button" title="next passage">&darr;</button>
+        </div>
+        <div id="reader-scroll">
+          <div id="reader-content">
+            <div id="reader-unanchored"></div>
+            <div id="reader-body"></div>
+          </div>
+          <div id="reader-gutter"></div>
+        </div>
       </div>
     </div>
 
@@ -154,5 +175,6 @@
 
 <script src="/vendor/cytoscape.min.js"></script>
 <script src="/static/app.js"></script>
+<script src="/static/reader.js"></script>
 </body>
 </html>

@@ -351,3 +351,121 @@ tr.row-clickable:hover { background: #f0f6ff; }
   background: rgba(255, 255, 255, 0.7);
   padding: 0 0.2rem;
 }
+
+/* ------------------------------------------------------ case reader (Phase 3) */
+
+.case-actions { margin: 0.4rem 0; }
+
+#case-reader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+#reader-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #ddd;
+}
+
+#reader-header button { font-size: 0.75rem; padding: 0.3rem 0.55rem; }
+
+#reader-case-name {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-counter { font-size: 0.75rem; color: #666; white-space: nowrap; }
+
+#reader-scroll {
+  position: relative;
+  display: flex;
+  max-height: 65vh;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+}
+
+#reader-content {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+}
+
+/* Thin scrollbar-gutter overlay (browser find-in-page tick-bar pattern):
+   sticky + height:100% pins it to the visible height of #reader-scroll's
+   viewport rather than scrolling away with the content, so tick top:X% is a
+   proportional position along the *document*, placed on a track whose own
+   length never changes as you scroll -- same geometry as a real scrollbar. */
+#reader-gutter {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100%;
+  width: 10px;
+  flex-shrink: 0;
+  background: #f4f4f4;
+  border-left: 1px solid #eee;
+}
+
+.reader-tick {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  height: 3px;
+  background: #c9a227;
+  border-radius: 1px;
+  cursor: pointer;
+}
+
+.reader-tick:hover { background: #4a90d9; }
+
+#reader-body { font-size: 0.85rem; line-height: 1.55; }
+#reader-body p, #reader-body blockquote { margin: 0 0 0.8rem; }
+#reader-body blockquote { padding-left: 0.8rem; border-left: 2px solid #ddd; color: #444; }
+
+/* Exact-anchored hit: a real character span, so it gets a real highlight. */
+mark.passage-hit {
+  background: #fff2a8;
+  padding: 0 0.05rem;
+  border-radius: 2px;
+}
+
+/* Normalized/fuzzy-anchored: paragraph-level only (no fragile char offset),
+   so the whole paragraph is marked, visually distinct from an exact <mark>
+   so a reader can tell "this exact wording" from "this general area". */
+p.passage-para, blockquote.passage-para {
+  border-left: 3px solid #c9a227;
+  background: #fdf6df;
+  padding-left: 0.6rem;
+  margin-left: -0.6rem;
+  border-radius: 0 3px 3px 0;
+}
+
+@keyframes passage-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(74, 144, 217, 0.55); }
+  100% { box-shadow: 0 0 0 8px rgba(74, 144, 217, 0); }
+}
+
+.passage-pulse { animation: passage-pulse 0.9s ease-out 1; }
+
+#reader-unanchored { margin-bottom: 0.6rem; }
+
+.nv-passage {
+  border: 1px solid #e3c3c3;
+  background: #fbeeee;
+  border-radius: 4px;
+  padding: 0.5rem 0.7rem;
+  margin: 0 0.9rem 0.5rem;
+}
+
+.nv-label { color: #a05; font-size: 0.78rem; font-style: italic; margin: 0 0 0.3rem; }
+.nv-text { font-size: 0.82rem; margin: 0; white-space: pre-wrap; }

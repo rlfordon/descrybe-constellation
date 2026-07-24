@@ -41,11 +41,22 @@ legend/encoding legibility, empty states, and the header button sprawl
   pane, export dropdown, empty states) — implemented 2026-07-24.
 - [x] Phase 2 (timeline & zoom correctness — axis tracks pan/zoom,
   counter-scaling zoom) — implemented 2026-07-24; see "Timeline view" above.
-- [ ] Phase 3 (case reader: full-opinion reading view + passage anchoring) —
-  not started. Feasibility (passage→opinion-text anchoring) measured in
-  `docs/research/2026-07-24-case-reader-feasibility.md`; gate item 12 in
-  `docs/ux-spec.md` (re-run the anchoring measurement on a second corpus)
-  still needs doing before this phase is built.
+- [x] Phase 3 (case reader: full-opinion reading view + passage anchoring) —
+  implemented 2026-07-24. Gate item 12 (second-corpus anchoring validation)
+  passed first — see `docs/research/2026-07-24-case-reader-feasibility.md`'s
+  "Second-corpus validation" addendum (0.85 threshold validated, ~89%
+  combined anchoring across 45 passages). Anchoring library factored into
+  `constellation/anchor.py` (parse/normalize/fuzzy-locate, extended per the
+  report with supra-volume-number and parallel-citation-run normalization,
+  plus paragraph-level `anchor_passage`); `scripts/measure_anchoring.py` now
+  imports from it. `constellation/cl.py` gained `opinion_html`;
+  `constellation/reader.py` sanitizes CourtListener `html_with_citations`
+  (stdlib `html.parser`, allowlist-based) and builds the anchored reader
+  payload. New endpoints `GET /api/case/{id}/reader` and
+  `GET /api/case/{id}/pdf`; frontend in `static/reader.js` (reading view,
+  `[Needs verification]` block, prev/next passage nav, scrollbar-tick
+  gutter). Unanchorable passages (measured ~10-12%) render in full with the
+  honest-failure label, never dropped.
 
 Decided inputs (maintainer, 2026-07-24):
 - The issue filter applies to the right-pane Leading/Case column as well as
