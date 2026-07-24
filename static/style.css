@@ -289,9 +289,11 @@ tr.row-clickable:hover { background: #f0f6ff; }
 .pane-empty-inline { padding: 0.6rem 0; }
 
 #legend {
+  /* top-right: the bottom edge belongs to the timeline's year ticks and the
+     left edge to its lane labels */
   position: absolute;
   right: 0.6rem;
-  bottom: 0.6rem;
+  top: 0.6rem;
   width: 190px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid #ccc;

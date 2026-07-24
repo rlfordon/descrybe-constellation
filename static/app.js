@@ -215,7 +215,9 @@ function renderGraph(payload) {
   cy = cytoscape({
     container: $("cy"),
     elements,
-    layout: { name: "cose" },
+    // cose is async: in timeline mode it would finish AFTER layoutTimeline()'s
+    // preset positions and stomp them (observed live) -- so don't start it
+    layout: layoutMode === "timeline" ? { name: "preset" } : { name: "cose" },
     style: [
       { selector: "node", style: {
           "background-color": (ele) => COURT_LEVEL_COLORS[ele.data("node").court_level] || "#bbb",
@@ -248,7 +250,10 @@ function renderGraph(payload) {
 
 function applyZoomStyle() {
   if (!cy) return;
-  zoomFactor = cy.zoom() || 1;
+  // clamp at 1: counter-scale only when zoomed IN (constant screen size);
+  // below 1 (fit / zoomed out) glyphs must shrink normally or they balloon
+  // into an overlapping blob at fit-view
+  zoomFactor = Math.max(cy.zoom() || 1, 1);
   cy.style().update(); // force re-evaluation of the function-valued styles above
 }
 

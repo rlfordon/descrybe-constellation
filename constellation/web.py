@@ -443,7 +443,8 @@ SNAPSHOT_TEMPLATE = """<!doctype html>
   }});
 
   function applyZoomStyle() {{
-    zoomFactor = cy.zoom() || 1;
+    // clamp at 1: counter-scale only when zoomed in, else fit-view balloons
+    zoomFactor = Math.max(cy.zoom() || 1, 1);
     cy.style().update();
   }}
 
