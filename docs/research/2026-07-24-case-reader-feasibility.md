@@ -109,3 +109,25 @@ Inspecting the two unanchorable passages and a sample of fuzzy-only matches show
 2. Build the honest-failure UI (`[Needs verification]`, no jump-link) for the unanchorable tail from day one — at ~9.5% on this sample it's infrequent but not negligible, and design.md's own convention already calls for exactly this pattern.
 3. Re-run `scripts/measure_anchoring.py` against at least one more corpus (different doctrine/jurisdiction/date range) before finalizing the 0.85 threshold and the field-preference fallback order — this run validates the *approach*, not the specific constants, on a sample of 21 passages.
 4. Treat exact-character-offset highlighting as a follow-on increment; paragraph-level anchoring via `html_with_citations`'s `<p id="…">` structure (confirmed present, with citation `<span data-id>` markup as a bonus for future forward-link rendering) is very likely both easier to implement and more accurate than raw character offsets, and should be prototyped before committing to an offset-mapping approach.
+
+## Second-corpus validation (gate item 12, run 2026-07-24)
+
+Seed "qualified immunity clearly established law", jurisdiction Federal — 8
+search-origin cases, 24 passages, measured with the same script (results in
+full in the run log; headline numbers):
+
+- exact 0/24 (0.0%), normalized 0/24 (0.0%) — federal-reporter parallel
+  citations and curly/straight quote divergence eliminate the cheap tiers
+  entirely on this corpus.
+- fuzzy >= 0.85: 21/24 (87.5%) anchored; unanchorable 3/24 (12.5%).
+- Field availability again favors `html_with_citations` (8/8 opinions,
+  several with NO plain_text or html at all).
+
+**Gate verdict: threshold 0.85 validated** (87.5% here vs 90.5% on the
+habitability corpus; ~89% combined across 45 passages). Design consequence:
+the fuzzy tier is the PRIMARY anchoring mechanism, not a fallback — exact/
+normalized are cheap first passes only. The unanchorable tail is real and
+includes passages whose best window ratio is far below threshold (0.345,
+0.607) — consistent with Descrybe passage extraction sometimes stitching
+context rather than quoting verbatim — so the [Needs verification] UI is
+mandatory, not decorative.
