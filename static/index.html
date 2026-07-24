@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>descrybe-constellation</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header id="app-header">
+  <h1>descrybe-constellation</h1>
+  <div class="header-actions">
+    <button id="export-trail">Export trail</button>
+    <button id="export-snapshot">Export snapshot</button>
+    <span class="note">research support, not legal advice</span>
+  </div>
+</header>
+
+<main>
+  <section id="pane-left">
+    <h2>Issue</h2>
+    <label>Seed issue
+      <textarea id="seed" rows="2" placeholder="e.g. implied warranty of habitability defense to eviction"></textarea>
+    </label>
+    <label>Jurisdiction (optional)
+      <input id="jurisdiction" type="text" placeholder="e.g. California">
+    </label>
+
+    <div id="variants">
+      <h3>Search variants</h3>
+      <div id="variant-list"></div>
+      <button id="add-variant" type="button">+ add variant</button>
+    </div>
+
+    <label class="checkbox-row">
+      <input id="harvest-labels" type="checkbox">
+      harvest issue labels from seed results
+    </label>
+
+    <label>Overlap threshold: <span id="threshold-value">0.5</span>
+      <input id="threshold" type="range" min="0" max="1" step="0.05" value="0.5">
+    </label>
+
+    <button id="search-btn" type="button">Search</button>
+
+    <div id="clusters"></div>
+
+    <button id="build-corpus-btn" type="button" disabled>Build Corpus</button>
+
+    <div id="hop-controls">
+      <h3>Citation hops</h3>
+      <button id="hop-backward" type="button" disabled>&#8634; Backward hop</button>
+      <div>
+        <button id="hop-forward" type="button" disabled>&#8635; Forward hop</button>
+        cap <input id="forward-cap" type="number" min="1" value="10" style="width:4em">
+      </div>
+      <div id="calls-hint" class="hint"></div>
+    </div>
+
+    <div id="status-line" class="status"></div>
+  </section>
+
+  <section id="pane-center">
+    <div id="cy"></div>
+  </section>
+
+  <section id="pane-right">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="case">Case</button>
+      <button class="tab-btn" data-tab="leading">Leading</button>
+    </div>
+
+    <div id="tab-case" class="tab-panel active">
+      <div id="case-empty">Click a node in the graph to view a case.</div>
+      <div id="case-card" style="display:none">
+        <h3 id="case-name"></h3>
+        <div id="case-meta"></div>
+        <div id="case-numbers"></div>
+        <div id="case-treatment"></div>
+        <details id="case-summary-wrap">
+          <summary><span class="tag">[Descrybe]</span> Summary</summary>
+          <div id="case-summary"></div>
+        </details>
+        <div id="case-status"></div>
+        <div class="focus-row">
+          <input id="focus-input" type="text" placeholder="focus a passage on...">
+          <button id="focus-btn" type="button">Get passage</button>
+        </div>
+        <div id="case-passage"></div>
+      </div>
+    </div>
+
+    <div id="tab-leading" class="tab-panel">
+      <h3>Ranked top</h3>
+      <table id="ranked-table">
+        <thead><tr><th>cited-by</th><th>searches</th><th>court wt</th><th>name</th><th>date</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <h3>Foundational candidates</h3>
+      <ul id="foundational-list"></ul>
+    </div>
+  </section>
+</main>
+
+<script src="/vendor/cytoscape.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

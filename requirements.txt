@@ -1,0 +1,5 @@
+descrybe-legal-engine
+requests
+fastapi
+uvicorn
+pytest
