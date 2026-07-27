@@ -87,3 +87,12 @@ labels. Markdown variant stays (paste-into-notes use case).
 - "Deep filter" upgrade: grade dimmed-vs-lit via Descrybe
   `get_case_passages(case_id, focus)` success/quality — better signal than
   full-text term matching, at one call per checked node.
+
+## Single-session server state (observed 2026-07-24)
+
+STATE is one global in-memory session. Two actors (two tabs, or a human plus
+an automation session) silently clobber each other's corpus — observed live:
+an automated hop ran against a human's freshly-built corpus without either
+side noticing. Fine for the single-user design intent, but worth either a
+session-per-tab scope or, cheaper, a visible session fingerprint (seed +
+build time) in the header so a hijacked/replaced session is at least obvious.
